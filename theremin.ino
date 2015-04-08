@@ -18,13 +18,6 @@ SoftwareSerial VS1053_MIDI(0, 2);
 #define VS1054_RX 2 // Connects to the RX pin on VS1053
 #define VS1053_RESET 9 // Connects to the RESET pin on VS1053
 
-// MIDI Sounds
-#define VS1053_GM1_OCARINA 80
-#define VS1053_GM1_FLUTE 74
-#define VS1053_GM1_SOPRANO_SAX 65
-#define VS1053_BANK_DEFAULT 0x00
-#define VS1053_BANK_MELODY 0x79
-
 // MIDI Actions
 #define MIDI_NOTE_ON  0x90
 #define MIDI_NOTE_OFF 0x80
@@ -32,6 +25,24 @@ SoftwareSerial VS1053_MIDI(0, 2);
 #define MIDI_CHAN_BANK 0x00
 #define MIDI_CHAN_VOLUME 0x07
 #define MIDI_CHAN_PROGRAM 0xC0
+
+// MIDI Sounds
+#define VS1053_BANK_DEFAULT 0x00
+#define VS1053_BANK_MELODY 0x79
+
+struct instrument {
+  int midiRef;
+  String instrName; 
+    
+  instrument (int mr, String n): midiRef(mr), instrName(n) { };
+};
+  
+instrument OCARINA(80, "ocarina");
+instrument FLUTE(74, "flute"); 
+instrument SAX(65, "saxophone");
+instrument ALL_INSTRUMENTS[] = {OCARINA, FLUTE, SAX}; 
+int NUM_OF_INSTRUMENTS = 3;
+int i=0; // To iterate through sounds
 
 void setup() {
   Serial.begin(9600);
@@ -52,39 +63,40 @@ void setup() {
   delay(10);
   
   midiSetChannelBank(0, VS1053_BANK_MELODY);
-  midiSetInstrument(0, VS1053_GM1_OCARINA);
+  midiSetInstrument(0, OCARINA.midiRef);
   midiSetChannelVolume(0, 127);
+  
 }
-
 
 void loop() {
   
   lcd.setCursor(0, 1);
   
-  for (uint8_t i=60; i<69; i++) {
-    midiNoteOn(0, i, 127);
+  for (uint8_t n=60; n<69; n++) {
+    midiNoteOn(0, n, 127);
     delay(100);
-    midiNoteOff(0, i, 127);
+    midiNoteOff(0, n, 127);
   }
   
-  
   uint8_t buttons = lcd.readButtons();
-  
   
   if (buttons) {
     lcd.clear();
     lcd.setCursor(0,0);
     if (buttons & BUTTON_UP) {
-      lcd.print("UP ");
-      lcd.setBacklight(ON);
+      if (i < NUM_OF_INSTRUMENTS-1){ i++; }
+      else { i = 0; } 
     }
     if (buttons & BUTTON_DOWN) {
-      lcd.print("DOWN ");
-      lcd.setBacklight(OFF);
-    }
+      if (i>0) { i--; }
+      else { i = NUM_OF_INSTRUMENTS-1; }
+   }
+    
+   lcd.print(ALL_INSTRUMENTS[i].instrName);
+   midiSetInstrument(0, ALL_INSTRUMENTS[i].midiRef);
   }
   
-  delay( 1000 );
+  delay( 10 );
 }
 
 

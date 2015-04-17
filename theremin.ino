@@ -6,6 +6,9 @@
 // Serial Library for Midi
 #include <SoftwareSerial.h>
 
+// CapSense Library
+#include <CapacitiveSensor.h>
+
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 SoftwareSerial VS1053_MIDI(0, 2);
 
@@ -44,12 +47,17 @@ instrument ALL_INSTRUMENTS[] = {OCARINA, FLUTE, SAX};
 int NUM_OF_INSTRUMENTS = 3;
 int i=0; // To iterate through sounds
 
+// Set up sensors
+CapacitiveSensor pitchSensor = CapacitiveSensor(12,13);    
+
 void setup() {
   Serial.begin(9600);
   
+  pitchSensor.set_CS_AutocaL_Millis(0xFFFFFFFF); 
+  
   // Display welcome screen
   lcd.begin(16, 2); // Sets num of cols & rows
-  lcd.print("Testing");
+  lcd.print("Arduino Theremin");
   lcd.setBacklight(WHITE);
   
   // Set up MIDI 
@@ -72,14 +80,21 @@ void loop() {
   
   lcd.setCursor(0, 1);
   
+ 
+    long total1 =  pitchSensor.capacitiveSensor(20);
+
+    Serial.print(total1);
+    Serial.print('\n');    // print sensor output 1
+  
   for (uint8_t n=60; n<69; n++) {
     midiNoteOn(0, n, 127);
     delay(100);
     midiNoteOff(0, n, 127);
   }
   
+  // Scan for button input.
+  // Change instrument if up/down button pressed and display on LCD
   uint8_t buttons = lcd.readButtons();
-  
   if (buttons) {
     lcd.clear();
     lcd.setCursor(0,0);
@@ -96,7 +111,7 @@ void loop() {
    midiSetInstrument(0, ALL_INSTRUMENTS[i].midiRef);
   }
   
-  delay( 10 );
+  delay( 20 );
 }
 
 
@@ -147,3 +162,5 @@ void midiNoteOff(uint8_t chan, uint8_t n, uint8_t vel) {
   VS1053_MIDI.write(n);
   VS1053_MIDI.write(vel);
 }
+
+

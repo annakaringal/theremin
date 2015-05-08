@@ -66,13 +66,14 @@ void setup() {
   // Set Reset Pin (D9) to output
   pinMode(VS1053_RESET, OUTPUT);
   digitalWrite(VS1053_RESET, LOW);
-  delay(10);
   digitalWrite(VS1053_RESET, HIGH);
-  delay(10);
   
+  // Initialize midi sound
   midiSetChannelBank(0, VS1053_BANK_MELODY);
   midiSetInstrument(0, OCARINA.midiRef);
   midiSetChannelVolume(0, 127);
+  
+  delay(2000);
   
 }
 
@@ -80,16 +81,10 @@ void loop() {
   
   lcd.setCursor(0, 1);
   
-  long rawPitch =  pitchSensor.capacitiveSensor(30);
-  delay(100);
-  
-  Serial.print(rawPitch);
-  Serial.print('\n');    // print sensor output 1
-  
-  long pitch = map(rawPitch, 50, 1000, 50, 200);
+  long pitch = map(pitchSensor.capacitiveSensor(30), 50, 1000, 50, 200);
   
   midiNoteOn(0,pitch,127);
-  delay(50);
+  delay(5);
   midiNoteOff(0,pitch,127);
   
   
@@ -112,9 +107,7 @@ void loop() {
    midiSetInstrument(0, ALL_INSTRUMENTS[i].midiRef);
   }
   
-  delay( 20 );
 }
-
 
 void midiSetInstrument(uint8_t chan, uint8_t inst) {
   if (chan > 15) return;
@@ -124,7 +117,6 @@ void midiSetInstrument(uint8_t chan, uint8_t inst) {
   VS1053_MIDI.write(MIDI_CHAN_PROGRAM | chan);  
   VS1053_MIDI.write(inst);
 }
-
 
 void midiSetChannelVolume(uint8_t chan, uint8_t vol) {
   if (chan > 15) return;

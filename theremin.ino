@@ -47,7 +47,7 @@ instrument ALL_INSTRUMENTS[] = {OCARINA, FLUTE, SAX};
 int NUM_OF_INSTRUMENTS = 3;
 int i=0; // To iterate through sounds
 
-// Set up sensors
+// Set up sensors: Pin 13 is receive sensor
 CapacitiveSensor pitchSensor = CapacitiveSensor(12,13);    
 
 void setup() {
@@ -80,17 +80,18 @@ void loop() {
   
   lcd.setCursor(0, 1);
   
- 
-    long total1 =  pitchSensor.capacitiveSensor(20);
-
-    Serial.print(total1);
-    Serial.print('\n');    // print sensor output 1
+  long rawPitch =  pitchSensor.capacitiveSensor(30);
+  delay(100);
   
-  for (uint8_t n=60; n<69; n++) {
-    midiNoteOn(0, n, 127);
-    delay(100);
-    midiNoteOff(0, n, 127);
-  }
+  Serial.print(rawPitch);
+  Serial.print('\n');    // print sensor output 1
+  
+  long pitch = map(rawPitch, 50, 1000, 50, 200);
+  
+  midiNoteOn(0,pitch,127);
+  delay(50);
+  midiNoteOff(0,pitch,127);
+  
   
   // Scan for button input.
   // Change instrument if up/down button pressed and display on LCD

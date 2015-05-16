@@ -1,3 +1,14 @@
+/*****************************************************************************
+ Title:             Theremin.ino
+ Author:            Anna Cristina Karingal
+ Created on:        April 8, 2015
+ Description:       An Arduino theremin using the Capsense Library to sense input
+                     Changes instrument depending on buttons pressed
+
+ Last Modified:     May 15, 2015
+
+ *****************************************************************************/
+
 // LCD Libraries
 #include <Wire.h>
 #include <Adafruit_MCP23017.h>
@@ -33,103 +44,122 @@ SoftwareSerial VS1053_MIDI(0, 2);
 #define VS1053_BANK_DEFAULT 0x00
 #define VS1053_BANK_MELODY 0x79
 
+// Set up instrments
 struct instrument {
   int midiRef;
-  String instrName; 
-    
+  String instrName;
+
   instrument (int mr, String n): midiRef(mr), instrName(n) { };
 };
-  
-instrument OCARINA(80, "ocarina");
-instrument FLUTE(74, "flute"); 
-instrument SAX(65, "saxophone");
-instrument ALL_INSTRUMENTS[] = {OCARINA, FLUTE, SAX}; 
+
+instrument OCARINA(80, "Ocarina");
+instrument GLOCK(10, "Glockenspiel");
+instrument CELLO(43, "Cello");
+instrument ALL_INSTRUMENTS[] = {OCARINA,  GLOCK, CELLO};
 int NUM_OF_INSTRUMENTS = 3;
-int i=0; // To iterate through sounds
+int i = 0; // To iterate through sounds
+long prev = 0;
 
 // Set up sensors: Pins 4 & 13 are receive sensor
-CapacitiveSensor volSensor = CapacitiveSensor(12,13);   
-CapacitiveSensor pitchSensor = CapacitiveSensor(7,8);    
+CapacitiveSensor volSensor = CapacitiveSensor(9,10);
+CapacitiveSensor pitchSensor = CapacitiveSensor(7, 8);
 
 void setup() {
-  Serial.begin(9600);
-  
-  pitchSensor.set_CS_AutocaL_Millis(0xFFFFFFFF); 
-  
+
+  pitchSensor.set_CS_AutocaL_Millis(0xFFFFFFFF);
+
   // Display welcome screen
   lcd.begin(16, 2); // Sets num of cols & rows
   lcd.print("Arduino Theremin");
   lcd.setBacklight(WHITE);
-  
-  // Set up MIDI 
+
+  // Set up MIDI
   VS1053_MIDI.begin(31250);
-  
+
   // Set Reset Pin (D9) to output
   pinMode(VS1053_RESET, OUTPUT);
   digitalWrite(VS1053_RESET, LOW);
   digitalWrite(VS1053_RESET, HIGH);
-  
+
   // Initialize midi sound
   midiSetChannelBank(0, VS1053_BANK_MELODY);
   midiSetInstrument(0, OCARINA.midiRef);
   midiSetChannelVolume(0, 127);
-  
+
   delay(2000);
-  
+
 }
 
 void loop() {
-  
+
   lcd.setCursor(0, 1);
-  // Get sensor inputs & map to midi input
-  long pitch = map(pitchSensor.capacitiveSensor(10),0, 500, 0, 127);
-  long vol = map(volSensor.capacitiveSensor(10), 0, 1000, 0, 100);
-  
-  //Test:  Plays Middle C 
-  midiNoteOn(0,60,127);
-  
-  // midiNoteOn(0,pitch,127);
- midiSetChannelVolume(0,vol);
-  delay(5);
- // midiNoteOff(0,pitch,127);
-  Serial.println(pitch);  
-  Serial.print("\t");  
-  Serial.println(vol);  
-  
+
+  // Get sensor pitch input and output as midi sound
+  long pitch = pitchSensor.capacitiveSensor(10);
+  midiNoteOn(0, pitch, 127);
+
+  // Get volume sensor input and output as midi volume
+  long vol = volSensor.capacitiveSensor(10);
+  long diff = abs(vol - prev);
+
+  // So that volume doesn't jump all over the place
+  // Only change volume if difference < 5
+  if (diff < 10) {
+    midiSetChannelVolume(0, vol);
+  }
+  prev = vol;
+
+  // Play note for 15ms before turning off
+  delay(15);
+  midiNoteOff(0, pitch, 127);
+
   // Scan for button input.
-  // Change instrument if up/down bu/9tton pressed and display on LCD
+  // Change instrument if up/down button pressed and display on LCD
   uint8_t buttons = lcd.readButtons();
   if (buttons) {
     lcd.clear();
-    lcd.setCursor(0,0);
+    lcd.setCursor(0, 0);
     if (buttons & BUTTON_UP) {
-      if (i < NUM_OF_INSTRUMENTS-1){ i++; }
-      else { i = 0; } 
+      if (i < NUM_OF_INSTRUMENTS - 1) {
+        i++;
+      }
+      else {
+        i = 0;
+      }
     }
     if (buttons & BUTTON_DOWN) {
-      if (i>0) { i--; }
-      else { i = NUM_OF_INSTRUMENTS-1; }
-   }
-    
-   lcd.print(ALL_INSTRUMENTS[i].instrName);
-   midiSetInstrument(0, ALL_INSTRUMENTS[i].midiRef);
+      if (i > 0) {
+        i--;
+      }
+      else {
+        i = NUM_OF_INSTRUMENTS - 1;
+      }
+    }
+
+    lcd.print(ALL_INSTRUMENTS[i].instrName);
+    midiSetInstrument(0, ALL_INSTRUMENTS[i].midiRef);
+    delay(100);
   }
-  
+
 }
 
+
+/**
+ *  Functions to write to midi channel
+ */
 void midiSetInstrument(uint8_t chan, uint8_t inst) {
   if (chan > 15) return;
-  inst --; // page 32 has instruments starting with 1 not 0 :(
+  inst --;
   if (inst > 127) return;
-  
-  VS1053_MIDI.write(MIDI_CHAN_PROGRAM | chan);  
+
+  VS1053_MIDI.write(MIDI_CHAN_PROGRAM | chan);
   VS1053_MIDI.write(inst);
 }
 
 void midiSetChannelVolume(uint8_t chan, uint8_t vol) {
   if (chan > 15) return;
   if (vol > 127) return;
-  
+
   VS1053_MIDI.write(MIDI_CHAN_MSG | chan);
   VS1053_MIDI.write(MIDI_CHAN_VOLUME);
   VS1053_MIDI.write(vol);
@@ -138,7 +168,7 @@ void midiSetChannelVolume(uint8_t chan, uint8_t vol) {
 void midiSetChannelBank(uint8_t chan, uint8_t bank) {
   if (chan > 15) return;
   if (bank > 127) return;
-  
+
   VS1053_MIDI.write(MIDI_CHAN_MSG | chan);
   VS1053_MIDI.write((uint8_t)MIDI_CHAN_BANK);
   VS1053_MIDI.write(bank);
@@ -148,7 +178,7 @@ void midiNoteOn(uint8_t chan, uint8_t n, uint8_t vel) {
   if (chan > 15) return;
   if (n > 127) return;
   if (vel > 127) return;
-  
+
   VS1053_MIDI.write(MIDI_NOTE_ON | chan);
   VS1053_MIDI.write(n);
   VS1053_MIDI.write(vel);
@@ -158,7 +188,7 @@ void midiNoteOff(uint8_t chan, uint8_t n, uint8_t vel) {
   if (chan > 15) return;
   if (n > 127) return;
   if (vel > 127) return;
-  
+
   VS1053_MIDI.write(MIDI_NOTE_OFF | chan);
   VS1053_MIDI.write(n);
   VS1053_MIDI.write(vel);
